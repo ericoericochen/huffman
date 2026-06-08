@@ -1,10 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ericoericochen/huffman/huffman"
+)
 
 func main() {
-	text := "HelloWorld"
-	htree := CreateHuffmanTreeFromText(text)
+	text := "Helllo"
+	// text := "HelloWorld"
+	htree := huffman.CreateTreeFromText(text)
 
 	fmt.Println(htree)
+	// fmt.Println([]bool{true, false, true})
 }
