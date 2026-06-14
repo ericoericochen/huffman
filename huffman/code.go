@@ -2,10 +2,15 @@ package huffman
 
 import "fmt"
 
-const BITS_IN_BYTE = 8
 
 type HuffmanCode struct {
 	tree *huffmanTree
+}
+
+type CompressionStats struct {
+	OriginalBits int64
+	CompressedBits int64
+	CompressionRatio float32
 }
 
 // errors
@@ -15,6 +20,11 @@ type InvalidDecodeError struct {
 
 func (e *InvalidDecodeError) Error() string {
 	return fmt.Sprintf("InvalidDecodeError - Unable to decode %v", e.bits)
+}
+
+// methods
+func (hc *HuffmanCode) GetPrefixCode(char string) (Bits, error) {
+	return hc.tree.getCode(char)
 }
 
 func (hc *HuffmanCode) Encode(text string) (Bits, error) {
@@ -67,13 +77,36 @@ func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
 	return decoded, nil
 }
 
-func MeasureCompressionRatio(text string, bits Bits) float32 {
-	numOriginalBits := len(text) * BITS_IN_BYTE
-	numCompressedBits := len(bits)
-	numSavedBits := numOriginalBits - numCompressedBits
-	compressionRatio := float32(numSavedBits) / float32(numOriginalBits)
-	return compressionRatio
+func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
+	originalBits := 0
+	compressedBits := 0
+
+	for node := range hc.tree.traverseLeafNodes() {
+		char := node.char
+		numBits := GetBits(char) * node.freq
+		code, _ := hc.GetPrefixCode(char)
+		numCompressedBits := len(code) * node.freq
+		originalBits += numBits
+		compressedBits += numCompressedBits
+	}
+
+	// calculate compression ratio
+	savedBits := originalBits - compressedBits
+	compressionRatio := float32(savedBits) / float32(originalBits)
+
+	stats := CompressionStats{
+		OriginalBits: int64(originalBits),
+		CompressedBits: int64(compressedBits),
+		CompressionRatio: compressionRatio,
+	}
+
+	return stats
 }
+
+func (hc *HuffmanCode) GetEntropy() float32 {
+	return 0
+} 
+
 
 func CreateHuffmanCodeFromText(text string) *HuffmanCode {
 	tree := createHuffmanTreeFromText(text)

@@ -19,8 +19,12 @@ func main() {
 	decoded, _ := hc.Decode(encoded)
 	fmt.Println(decoded)
 
+	// compression stats
+	stats := hc.GetCompressionStats()
+	fmt.Println(stats)
+
 	// measure bits saved
-	fmt.Println("original bits: ", len(text) * huffman.BITS_IN_BYTE)
-	fmt.Println("compressed bits: ", len(encoded))
-	fmt.Println("compression ratio: ", huffman.MeasureCompressionRatio(text, encoded))
+	fmt.Println("original bits: ", stats.OriginalBits)
+	fmt.Println("compressed bits: ", stats.CompressedBits)
+	fmt.Println("compression ratio: ", stats.CompressionRatio)
 }

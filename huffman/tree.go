@@ -31,6 +31,33 @@ func (t *huffmanTree) isRoot(n *huffmanNode) bool {
 	return t.root == n
 }
 
+
+func (t *huffmanTree) traverseLeafNodes() <-chan *huffmanNode  {
+	ch := make(chan *huffmanNode)
+
+	go func() {
+		traverseLeafNodes(t.root, ch)
+		close(ch)
+	}()
+
+	return ch
+}
+
+
+func traverseLeafNodes(node *huffmanNode, ch chan<- *huffmanNode) {
+	if node == nil {
+		return
+	}
+
+	if node.isLeaf() {
+		ch <- node
+		return
+	}
+
+	traverseLeafNodes(node.left, ch)
+	traverseLeafNodes(node.right, ch)
+}
+
 type huffmanNode struct {
 	freq int
 	char string
@@ -89,8 +116,6 @@ func getBitsForEachChar(n *huffmanNode) map[string]Bits  {
 
 
 func createHuffmanTreeFromText(text string) *huffmanTree {
-	fmt.Println(text)
-
 	// count frequency of each char in text
 	freqs := make(map[string]int)
 	for _, r := range text {
@@ -125,10 +150,6 @@ func createHuffmanTreeFromText(text string) *huffmanTree {
 	}
 
 	root := nodes[0]
-	// preOrderTraversal(root)
-
-	// fmt.Println(nodes)
-
 	bitmap := getBitsForEachChar(root)
 	fmt.Println(bitmap)
 

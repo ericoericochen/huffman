@@ -8,6 +8,8 @@ const (
 	One Bit = true
 )
 
+const BITS_IN_BYTE = 8
+
 func (bs Bits) String() string {
 	rep := ""
 	for _, bit := range bs {
@@ -18,4 +20,8 @@ func (bs Bits) String() string {
 		}
 	}
 	return rep
+}
+
+func GetBits(text string) int {
+	return len(text) * BITS_IN_BYTE
 }
