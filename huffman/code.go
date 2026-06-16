@@ -116,3 +116,10 @@ func CreateHuffmanCodeFromText(text string) *HuffmanCode {
 
 	return &hc
 }
+
+// freqs: frequency of unicode code point (rune)
+func NewHuffmanCodeFromFreq(freqs map[rune]int) *HuffmanCode {
+
+	hc := HuffmanCode{}
+	return &hc
+}

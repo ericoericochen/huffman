@@ -161,3 +161,7 @@ func createHuffmanTreeFromText(text string) *huffmanTree {
 
 	return &tree
 }
+
+func newHuffumanTreeFromFreq() {
+
+}
