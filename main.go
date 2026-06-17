@@ -19,6 +19,8 @@ func main() {
 	decoded, _ := hc.Decode(encoded)
 	fmt.Println(decoded)
 
+	fmt.Println("same: ", text == decoded)
+
 	// compression stats
 	stats := hc.GetCompressionStats()
 	fmt.Println(stats)

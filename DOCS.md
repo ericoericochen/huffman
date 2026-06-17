@@ -10,9 +10,9 @@ hfcode encode <file>
 
 A hfcode file consists of a header containing the frequency of each unicode character present in the original file and a body containing the compressed bytes. The header can be decoded into a huffman tree which can be used to decode the compressed bytes.
 
-The header tells us the number of unicode characters and their frequency.
+The header tells us the number of unicode characters and maps their unicode codepoint to their frequency.
 
-In the body, we store the number of bits and the actual bits. The number of decodable bits may be shorter than the bytes present so there may be extra padding of 0s at the end.
+In the body, we store the number of bits and the encoded bits. The number of decodable bits may be shorter than the bytes present so there may be extra padding of 0s at the end.
 
 ```
 [header]

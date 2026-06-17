@@ -23,8 +23,18 @@ func (e *InvalidDecodeError) Error() string {
 }
 
 // methods
-func (hc *HuffmanCode) GetPrefixCode(char string) (Bits, error) {
+func (hc *HuffmanCode) GetPrefixCode(char rune) (Bits, error) {
 	return hc.tree.getCode(char)
+}
+
+// get the number of unique unicode characters
+// in the huffman code
+func (hc *HuffmanCode) NumChars() int {
+	return len(hc.tree.bitmap)
+}
+
+func (hc *HuffmanCode) getTree() *huffmanTree {
+	return hc.tree
 }
 
 func (hc *HuffmanCode) Encode(text string) (Bits, error) {
@@ -32,8 +42,7 @@ func (hc *HuffmanCode) Encode(text string) (Bits, error) {
 
 	// get code for each char and concat them together
 	for _, r := range text {
-		char := string(r)
-		code, err := hc.tree.getCode(char)
+		code, err := hc.tree.getCode(r)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +72,7 @@ func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
 		}
 
 		if node.isLeaf() {
-			decoded += node.char
+			decoded += node.GetCharString()
 			node = hc.tree.root
 		}
 	}
@@ -82,9 +91,9 @@ func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
 	compressedBits := 0
 
 	for node := range hc.tree.traverseLeafNodes() {
-		char := node.char
-		numBits := GetBits(char) * node.freq
-		code, _ := hc.GetPrefixCode(char)
+		charString := node.GetCharString()
+		numBits := GetBits(charString) * node.freq
+		code, _ := hc.GetPrefixCode(node.char)
 		numCompressedBits := len(code) * node.freq
 		originalBits += numBits
 		compressedBits += numCompressedBits
@@ -119,7 +128,7 @@ func CreateHuffmanCodeFromText(text string) *HuffmanCode {
 
 // freqs: frequency of unicode code point (rune)
 func NewHuffmanCodeFromFreq(freqs map[rune]int) *HuffmanCode {
-
-	hc := HuffmanCode{}
+	tree := newHuffumanTreeFromFreq(freqs)
+	hc := HuffmanCode{tree: tree,}
 	return &hc
 }

@@ -8,18 +8,19 @@ import (
 
 type huffmanTree struct {
 	root *huffmanNode
-	bitmap map[string]Bits
+	bitmap map[rune]Bits
+	leafNodes map[rune]*huffmanNode
 }
 
 type CodeNotFound struct {
-	char string
+	char rune
 }
 
 func (e *CodeNotFound) Error() string {
-	return fmt.Sprintf("CodeNotFound{char: %v}", e.char)
+	return fmt.Sprintf("CodeNotFound{char: %v}", string(e.char))
 }
 
-func (t *huffmanTree) getCode(char string) (Bits, error) {
+func (t *huffmanTree) getCode(char rune) (Bits, error) {
 	bits, ok := t.bitmap[char]
 	if !ok {
 		return nil, &CodeNotFound{char: char}
@@ -31,6 +32,9 @@ func (t *huffmanTree) isRoot(n *huffmanNode) bool {
 	return t.root == n
 }
 
+func (t *huffmanTree) getLeafNode(char rune) *huffmanNode {
+	return t.leafNodes[char]
+}
 
 func (t *huffmanTree) traverseLeafNodes() <-chan *huffmanNode  {
 	ch := make(chan *huffmanNode)
@@ -60,13 +64,17 @@ func traverseLeafNodes(node *huffmanNode, ch chan<- *huffmanNode) {
 
 type huffmanNode struct {
 	freq int
-	char string
+	char rune
 	left *huffmanNode
 	right *huffmanNode
 }
 
 func (n huffmanNode) String() string {
-	return fmt.Sprintf("Node{freq: %v, char: %v}", n.freq, n.char)
+	return fmt.Sprintf("Node{freq: %v, char: %v}", n.freq, string(n.char))
+}
+
+func (n *huffmanNode) GetCharString() string {
+	return string(n.char)
 }
 
 func (n *huffmanNode) isLeaf() bool {
@@ -91,10 +99,20 @@ func preOrderTraversal(n *huffmanNode) {
 	preOrderTraversal(n.right)
 }
 
+func traverse(n *huffmanNode, f func(*huffmanNode)) {
+	if n == nil {
+		return
+	}
+
+	f(n)
+	traverse(n.left, f)
+	traverse(n.right, f)
+}
+
 // get the mapping of char to their huffman codes (sequence of bits)
-func getBitsForEachChar(n *huffmanNode) map[string]Bits  {
+func getBitsForEachChar(n *huffmanNode) map[rune]Bits  {
 	bits := []Bit{}
-	mapping := make(map[string]Bits)
+	mapping := make(map[rune]Bits)
 
 	var traverse func(n *huffmanNode)
 	traverse = func(n *huffmanNode) {
@@ -117,18 +135,28 @@ func getBitsForEachChar(n *huffmanNode) map[string]Bits  {
 
 func createHuffmanTreeFromText(text string) *huffmanTree {
 	// count frequency of each char in text
-	freqs := make(map[string]int)
+	freqs := make(map[rune]int)
 	for _, r := range text {
-		c := string(r)
-		freqs[c] = freqs[c] + 1
+		freqs[r] = freqs[r] + 1
 	}
 
+	return newHuffumanTreeFromFreq(freqs)
+}
+
+func newHuffumanTreeFromFreq(freqs map[rune]int) *huffmanTree {
 	// create leaf node for each char
 	nodes := []*huffmanNode{}
-	for char, freq := range freqs {
+	unicodes := make([]rune, 0, len(freqs))
+	for k := range freqs {
+		unicodes = append(unicodes, k)
+	}
+
+	slices.Sort(unicodes)
+	for _, unicode := range unicodes {
+		freq := freqs[unicode]
 		node := huffmanNode{
 			freq: freq,
-			char: char,
+			char: unicode,
 		}
 		nodes = append(nodes, &node)
 	}
@@ -136,6 +164,7 @@ func createHuffmanTreeFromText(text string) *huffmanTree {
 	// construct huffman tree by greedily merging the 2 lowest freq nodes
 	// until there is one node
 	for len(nodes) != 1 {
+		// TODO: replace this with min priority queue
 		slices.SortFunc(nodes, func(a, b *huffmanNode) int {
 			return a.freq - b.freq
 		})
@@ -151,17 +180,21 @@ func createHuffmanTreeFromText(text string) *huffmanTree {
 
 	root := nodes[0]
 	bitmap := getBitsForEachChar(root)
-	fmt.Println(bitmap)
+	leafNodes := make(map[rune]*huffmanNode)
 
+	traverse(root, func(n *huffmanNode) {
+		if n.isLeaf() {
+			leafNodes[n.char] = n
+		}
+	})
+
+	fmt.Println(bitmap)
 
 	tree := huffmanTree{
 		root: root,
 		bitmap: bitmap,
+		leafNodes: leafNodes,
 	}
 
 	return &tree
-}
-
-func newHuffumanTreeFromFreq() {
-
 }
