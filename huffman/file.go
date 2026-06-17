@@ -9,12 +9,22 @@ import (
 	"os"
 )
 
+const FILE_EXTENSION = "hfcode"
+
 type FileCompressor struct {}
 
 func NewFileCompressor() *FileCompressor {
 	return &FileCompressor{}
 }
 
+// errors
+type InvalidHeaderError struct {}
+
+func (e *InvalidHeaderError) Error() string {
+	return fmt.Sprintf("Invalid %v header", FILE_EXTENSION)
+}
+
+// methods
 func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	// open file
 	file, err := os.Open(fp)
@@ -25,14 +35,8 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 
 	defer file.Close()
 
-	// frequency of unicode characters
-	freqs := make(map[rune]int)
-	for r := range streamRunes(file) {
-		freqs[r]++
-	}
-
-	// construct huffman code
-	huffmanCode := NewHuffmanCodeFromFreq(freqs)
+	// create huffman code
+	huffmanCode := fc.CreateHuffmanCode(file)
 	tree := huffmanCode.getTree()
 
 	// create save file
@@ -55,7 +59,6 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	for node := range tree.traverseLeafNodes() {
 		freq := node.freq
 		char := node.char
-		fmt.Println(string(char), ": ", freq)
 		charBytes := make([]byte, 4)
 		freqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint32(charBytes, uint32(char))
@@ -67,10 +70,52 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	defer writer.Flush()
 }
 
+func (fc *FileCompressor) CreateHuffmanCode(f *os.File) *HuffmanCode {
+	freqs := make(map[rune]int)
+	for r := range streamRunes(f) {
+		freqs[r]++
+	}
+	huffmanCode := NewHuffmanCodeFromFreq(freqs)
+	return huffmanCode
+}
+
 func (fc *FileCompressor) Decode(fp string) {
 
 }
 
+
+func (fc *FileCompressor) DecodeHuffmanCodeFromHeader(f *os.File) (*HuffmanCode, error) {
+	var numCharsRaw uint32
+	err := binary.Read(f, binary.LittleEndian, &numCharsRaw)
+	if err != nil {
+		return nil, &InvalidHeaderError{}
+	}
+
+	numChars := int(numCharsRaw)
+	freqs := make(map[rune]int)
+
+	for i := 0; i < numChars; i++ {
+		var runeRaw uint32
+		var freqRaw uint64
+		
+		err := binary.Read(f, binary.LittleEndian, &runeRaw)
+		if err != nil {
+			return nil, &InvalidHeaderError{}
+		}
+
+		err = binary.Read(f, binary.LittleEndian, &freqRaw)
+		if err != nil {
+			return nil, &InvalidDecodeError{}
+		}
+
+		char := rune(runeRaw)
+		freq := int(freqRaw)
+		freqs[char] = freq
+	}
+
+	huffmanCode := NewHuffmanCodeFromFreq(freqs)
+	return huffmanCode, nil
+}
 
 
 func streamRunes(f *os.File) <-chan rune {

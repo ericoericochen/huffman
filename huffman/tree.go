@@ -47,6 +47,33 @@ func (t *huffmanTree) traverseLeafNodes() <-chan *huffmanNode  {
 	return ch
 }
 
+func (t *huffmanTree) equals(other *huffmanTree) bool {
+	return sameHuffmanTree(t.root, other.root)
+}
+
+func sameHuffmanTree(a, b *huffmanNode) bool {
+	// check both nodes are nil
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	// check current node
+	if !a.equals(b) {
+		return false
+	}
+
+	// check left subtree
+	if !sameHuffmanTree(a.left, b.left) {
+		return false
+	}
+
+	// check right subtree
+	if !sameHuffmanTree(a.right, b.right) {
+		return false
+	}
+
+	return true
+}
 
 func traverseLeafNodes(node *huffmanNode, ch chan<- *huffmanNode) {
 	if node == nil {
@@ -79,6 +106,18 @@ func (n *huffmanNode) GetCharString() string {
 
 func (n *huffmanNode) isLeaf() bool {
 	return n.left == nil && n.right == nil
+}
+
+func (n *huffmanNode) equals(other *huffmanNode) bool {
+	if n.freq != other.freq {
+		return false
+	}
+
+	if n.char != other.char {
+		return false
+	}
+	
+	return true
 }
 
 func mergeNodes(a, b *huffmanNode) *huffmanNode {
@@ -188,7 +227,7 @@ func newHuffumanTreeFromFreq(freqs map[rune]int) *huffmanTree {
 		}
 	})
 
-	fmt.Println(bitmap)
+	// fmt.Println(bitmap)
 
 	tree := huffmanTree{
 		root: root,

@@ -37,6 +37,10 @@ func (hc *HuffmanCode) getTree() *huffmanTree {
 	return hc.tree
 }
 
+func (hc *HuffmanCode) Equals(other *HuffmanCode) bool {
+	return hc.tree.equals(other.tree)
+}
+
 func (hc *HuffmanCode) Encode(text string) (Bits, error) {
 	var bits Bits = []Bit{}
 
