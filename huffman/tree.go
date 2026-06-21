@@ -10,6 +10,7 @@ type huffmanTree struct {
 	root *huffmanNode
 	bitmap map[rune]Bits
 	leafNodes map[rune]*huffmanNode
+	freqs map[rune]int
 }
 
 type CodeNotFound struct {
@@ -49,6 +50,14 @@ func (t *huffmanTree) traverseLeafNodes() <-chan *huffmanNode  {
 
 func (t *huffmanTree) equals(other *huffmanTree) bool {
 	return sameHuffmanTree(t.root, other.root)
+}
+
+func (t *huffmanTree) TotalChars() int {
+	totalChars := 0
+	for _, freq := range t.freqs {
+		totalChars += freq
+	}
+	return totalChars
 }
 
 func sameHuffmanTree(a, b *huffmanNode) bool {
@@ -233,6 +242,7 @@ func newHuffumanTreeFromFreq(freqs map[rune]int) *huffmanTree {
 		root: root,
 		bitmap: bitmap,
 		leafNodes: leafNodes,
+		freqs: freqs,
 	}
 
 	return &tree

@@ -109,6 +109,23 @@ func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
 func (hc *HuffmanCode) StreamDecode(bits <-chan Bit) <-chan rune {
 	ch := make(chan rune)
 
+	go func() {
+		defer close(ch)
+		node := hc.tree.root
+		for bit := range bits {
+			if bit == Zero {
+				node = node.left
+			} else if bit == One {
+				node = node.right
+			}
+
+			if node.isLeaf() {
+				ch <- node.char
+				node = hc.tree.root
+			}
+		}
+	}()
+
 	return ch
 }
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 const FILE_EXTENSION = "hfcode"
@@ -72,6 +73,7 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	currentIdx := 0
 
 	// stream encoded bits
+	file.Seek(0, io.SeekStart)
 	runesCh := streamRunes(file)
 	bitsStream := huffmanCode.StreamEncode(runesCh)
 
@@ -85,7 +87,6 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 
 		if currentIdx == 8 {
 			writer.Write([]byte{currentByte})
-			fmt.Println(StringifyByte(currentByte))
 			currentIdx = 0
 			currentByte = 0
 		}
@@ -94,7 +95,6 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	// write byte we haven't written to disk yet
 	// has additional padding
 	if currentIdx > 0 {
-		fmt.Println(StringifyByte(currentByte))
 		writer.Write([]byte{currentByte})
 	}
 
@@ -104,6 +104,7 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 
 func (fc *FileCompressor) CreateHuffmanCode(f *os.File) *HuffmanCode {
 	freqs := make(map[rune]int)
+	f.Seek(0, io.SeekStart)
 	for r := range streamRunes(f) {
 		freqs[r]++
 	}
@@ -112,7 +113,44 @@ func (fc *FileCompressor) CreateHuffmanCode(f *os.File) *HuffmanCode {
 }
 
 func (fc *FileCompressor) Decode(fp string) {
+	fmt.Println("decoding file")
 
+	if !strings.HasSuffix(fp, FILE_EXTENSION) {
+		log.Fatal("Not a .hfcode file")
+	}
+	
+	file, err := os.Open(fp)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	huffmanCode, err := fc.DecodeHuffmanCodeFromHeader(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	saveFp := strings.TrimSuffix(fp, "." + FILE_EXTENSION)
+	saveFile, err := os.Create(saveFp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	writer := bufio.NewWriter(saveFile)
+	defer writer.Flush()
+
+	totalChars := huffmanCode.tree.TotalChars()
+	currentChars := 0
+	bitStream := streamBits(file)
+	
+	outputStream := huffmanCode.StreamDecode(bitStream)
+	for r := range outputStream {
+		char := string(r)
+		currentChars ++
+		writer.WriteString(char)
+		
+		if currentChars == totalChars {
+			break
+		}
+	}
 }
 
 
@@ -152,17 +190,40 @@ func (fc *FileCompressor) DecodeHuffmanCodeFromHeader(f *os.File) (*HuffmanCode,
 
 func streamRunes(f *os.File) <-chan rune {
 	ch := make(chan rune)
-	f.Seek(0, io.SeekStart)
-	scanner := bufio.NewScanner(f)
+	reader := bufio.NewReader(f)
 
 	go func() {
-		for scanner.Scan() {
-			line := scanner.Text()
-			for _, r := range line {
-				ch <- r
+		defer close(ch)
+		for {
+			c, _, err := reader.ReadRune()
+			if err != nil {
+				break
+			}
+			ch <- c
+		}
+	}()
+
+	return ch
+}
+
+func streamBits(f *os.File) <-chan Bit {
+	reader := bufio.NewReader(f)
+	ch := make(chan Bit)
+
+	go func() {
+		for {
+			b, err := reader.ReadByte()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			bits := ByteToBits(b)
+			for _, bit := range bits {
+				ch <- bit
 			}
 		}
-		close(ch)
 	}()
 
 	return ch

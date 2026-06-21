@@ -4,9 +4,14 @@
 - decode header of hfcode file back into huffman tree x
 - check that huffman tree are the same x
 
-- encode text file
-- decode text file
-- validate that decoded text file is the same as the original
+- encode text file x
+- decode text file x
+- validate that decoded text file is the same as the original x
+
+---
+
+- refactor huffman code and tree - merge into one
+- create huffman code decoder
 - get stats
 - implement priority queue with heap
 - write readme

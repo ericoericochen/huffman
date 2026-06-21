@@ -35,7 +35,7 @@ func main() {
 		fmt.Println("encode")
 		cli.Encode(args[2], args[3])
 	case "decode": 
-		fmt.Println("decode")
+		cli.Decode(args[2])
 	case "stats":
 		fmt.Println("stats")
 	default:
