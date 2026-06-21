@@ -25,3 +25,12 @@ func (bs Bits) String() string {
 func GetBits(text string) int {
 	return len(text) * BITS_IN_BYTE
 }
+
+func StringifyByte(b byte) string {
+	var bits Bits = make([]Bit, 8)
+	for i := 0; i < 8; i++ {
+		bit := (b >> i) & 1
+		bits[7 - i] = bit == 1
+	}
+	return bits.String()
+}

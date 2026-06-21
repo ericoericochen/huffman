@@ -33,14 +33,12 @@ func main() {
 	switch cmd {
 	case "encode":
 		fmt.Println("encode")
-		cli.Encode(args[3], args[2])
+		cli.Encode(args[2], args[3])
+	case "decode": 
+		fmt.Println("decode")
+	case "stats":
+		fmt.Println("stats")
 	default:
 		fmt.Println("non command found")
 	}
-
-	// const s = "สวัสดี"
-
-
-	// fmt.Println(len(s))
-	//     fmt.Println("Rune count:", utf8.RuneCountInString(s))
 }

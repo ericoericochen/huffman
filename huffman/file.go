@@ -67,8 +67,40 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 		writer.Write(freqBytes)
 	}
 
+	// encode file contents using huffman tree
+	var currentByte byte
+	currentIdx := 0
+
+	// stream encoded bits
+	runesCh := streamRunes(file)
+	bitsStream := huffmanCode.StreamEncode(runesCh)
+
+	// set encoded bit in byte
+	// when we reach end of byte, write to file and create new byte to write to
+	for bit := range bitsStream {
+		if bit {
+			currentByte |= 1 << (7 - currentIdx)
+		}
+		currentIdx ++
+
+		if currentIdx == 8 {
+			writer.Write([]byte{currentByte})
+			fmt.Println(StringifyByte(currentByte))
+			currentIdx = 0
+			currentByte = 0
+		}
+	}
+
+	// write byte we haven't written to disk yet
+	// has additional padding
+	if currentIdx > 0 {
+		fmt.Println(StringifyByte(currentByte))
+		writer.Write([]byte{currentByte})
+	}
+
 	defer writer.Flush()
 }
+
 
 func (fc *FileCompressor) CreateHuffmanCode(f *os.File) *HuffmanCode {
 	freqs := make(map[rune]int)

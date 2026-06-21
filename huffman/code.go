@@ -41,12 +41,12 @@ func (hc *HuffmanCode) Equals(other *HuffmanCode) bool {
 	return hc.tree.equals(other.tree)
 }
 
-func (hc *HuffmanCode) Encode(text string) (Bits, error) {
+func (hc *HuffmanCode) Encode(chars []rune) (Bits, error) {
 	var bits Bits = []Bit{}
 
 	// get code for each char and concat them together
-	for _, r := range text {
-		code, err := hc.tree.getCode(r)
+	for _, r := range chars {
+		code, err := hc.GetPrefixCode(r)
 		if err != nil {
 			return nil, err
 		}
@@ -55,6 +55,22 @@ func (hc *HuffmanCode) Encode(text string) (Bits, error) {
 	}
 	
 	return bits, nil
+}
+
+func (hc *HuffmanCode) StreamEncode(chars <-chan rune) <-chan Bit {
+	ch := make(chan Bit)
+	
+	go func() {
+		defer close(ch)
+		for r := range chars {
+			code, _ := hc.GetPrefixCode(r)
+			for _, bit := range code {
+				ch <- bit
+			}
+		}
+	}()
+
+	return ch
 }
 
 func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
@@ -88,6 +104,12 @@ func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
 	}
 
 	return decoded, nil
+}
+
+func (hc *HuffmanCode) StreamDecode(bits <-chan Bit) <-chan rune {
+	ch := make(chan rune)
+
+	return ch
 }
 
 func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
