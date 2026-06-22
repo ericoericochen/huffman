@@ -29,16 +29,13 @@ func (e *InvalidHeaderError) Error() string {
 func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	// open file
 	file, err := os.Open(fp)
-	
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer file.Close()
 
 	// create huffman code
 	huffmanCode := fc.CreateHuffmanCode(file)
-	tree := huffmanCode.getTree()
 
 	// create save file
 	saveFile, err := os.Create(saveFp)
@@ -57,7 +54,7 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	writer.Write(numCharsBs)
 
 	// for each char, save its unicode point and frequency
-	for node := range tree.traverseLeafNodes() {
+	for node := range huffmanCode.LeafNodes() {
 		freq := node.freq
 		char := node.char
 		charBytes := make([]byte, 4)
@@ -75,11 +72,14 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 	// stream encoded bits
 	file.Seek(0, io.SeekStart)
 	runesCh := streamRunes(file)
-	bitsStream := huffmanCode.StreamEncode(runesCh)
 
 	// set encoded bit in byte
 	// when we reach end of byte, write to file and create new byte to write to
-	for bit := range bitsStream {
+	for result := range huffmanCode.StreamEncode(runesCh) {
+		if result.Err != nil {
+			log.Fatal(result.Err)
+		}
+		bit := result.Val
 		if bit {
 			currentByte |= 1 << (7 - currentIdx)
 		}
@@ -103,18 +103,16 @@ func (fc *FileCompressor) Encode(fp string, saveFp string) {
 
 
 func (fc *FileCompressor) CreateHuffmanCode(f *os.File) *HuffmanCode {
-	freqs := make(map[rune]int)
+	charFreqs := make(map[rune]int)
 	f.Seek(0, io.SeekStart)
 	for r := range streamRunes(f) {
-		freqs[r]++
+		charFreqs[r]++
 	}
-	huffmanCode := NewHuffmanCodeFromFreq(freqs)
+	huffmanCode := NewHuffmanCode(charFreqs)
 	return huffmanCode
 }
 
-func (fc *FileCompressor) Decode(fp string) {
-	fmt.Println("decoding file")
-
+func (fc *FileCompressor) Decode(fp string, outputFp string) {
 	if !strings.HasSuffix(fp, FILE_EXTENSION) {
 		log.Fatal("Not a .hfcode file")
 	}
@@ -129,7 +127,13 @@ func (fc *FileCompressor) Decode(fp string) {
 		log.Fatal(err)
 	}
 
-	saveFp := strings.TrimSuffix(fp, "." + FILE_EXTENSION)
+	var saveFp string
+	if outputFp == "" {
+		saveFp = strings.TrimSuffix(fp, "." + FILE_EXTENSION)
+	} else {
+		saveFp = outputFp
+	}
+
 	saveFile, err := os.Create(saveFp)
 	if err != nil {
 		log.Fatal(err)
@@ -137,13 +141,15 @@ func (fc *FileCompressor) Decode(fp string) {
 	writer := bufio.NewWriter(saveFile)
 	defer writer.Flush()
 
-	totalChars := huffmanCode.tree.TotalChars()
+	totalChars := huffmanCode.TotalChars()
 	currentChars := 0
 	bitStream := streamBits(file)
 	
-	outputStream := huffmanCode.StreamDecode(bitStream)
-	for r := range outputStream {
-		char := string(r)
+	for result := range huffmanCode.StreamDecode(bitStream) {
+		if result.Err != nil {
+			log.Fatal(result.Err)
+		}
+		char := string(result.Val)
 		currentChars ++
 		writer.WriteString(char)
 		
@@ -162,7 +168,7 @@ func (fc *FileCompressor) DecodeHuffmanCodeFromHeader(f *os.File) (*HuffmanCode,
 	}
 
 	numChars := int(numCharsRaw)
-	freqs := make(map[rune]int)
+	charFreqs := make(map[rune]int)
 
 	for i := 0; i < numChars; i++ {
 		var runeRaw uint32
@@ -180,10 +186,10 @@ func (fc *FileCompressor) DecodeHuffmanCodeFromHeader(f *os.File) (*HuffmanCode,
 
 		char := rune(runeRaw)
 		freq := int(freqRaw)
-		freqs[char] = freq
+		charFreqs[char] = freq
 	}
 
-	huffmanCode := NewHuffmanCodeFromFreq(freqs)
+	huffmanCode := NewHuffmanCode(charFreqs)
 	return huffmanCode, nil
 }
 

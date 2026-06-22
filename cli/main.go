@@ -16,9 +16,9 @@ func (cli *HfcodeCli) Encode(fp string, saveFp string) {
 }
 
 // decode a hfcode file
-func (cli *HfcodeCli) Decode(fp string) {
+func (cli *HfcodeCli) Decode(fp string, outputFp string) {
 	fileCompressor := huffman.NewFileCompressor()
-	fileCompressor.Decode(fp)
+	fileCompressor.Decode(fp, outputFp)
 }
 
 
@@ -34,8 +34,8 @@ func main() {
 	case "encode":
 		fmt.Println("encode")
 		cli.Encode(args[2], args[3])
-	case "decode": 
-		cli.Decode(args[2])
+	case "decode":
+		cli.Decode(args[2], args[3])
 	case "stats":
 		fmt.Println("stats")
 	default:

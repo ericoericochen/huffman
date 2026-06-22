@@ -4,13 +4,26 @@ import "fmt"
 
 
 type HuffmanCode struct {
-	tree *huffmanTree
+	tree *huffmanNode
+	bitmap map[rune]Bits
+	leafNodes map[rune]*huffmanNode
+	charFreqs map[rune]int
 }
 
 type CompressionStats struct {
 	OriginalBits int64
 	CompressedBits int64
 	CompressionRatio float32
+}
+
+type StreamEncodeResult struct {
+	Val Bit
+	Err error
+}
+
+type StreamDecodeResult struct {
+	Val rune
+	Err error
 }
 
 // errors
@@ -22,106 +35,152 @@ func (e *InvalidDecodeError) Error() string {
 	return fmt.Sprintf("InvalidDecodeError - Unable to decode %v", e.bits)
 }
 
+type CodeNotFound struct {
+	char rune
+}
+
+func (e *CodeNotFound) Error() string {
+	return fmt.Sprintf("CodeNotFound{char: %v}", string(e.char))
+}
+
+
 // methods
 func (hc *HuffmanCode) GetPrefixCode(char rune) (Bits, error) {
-	return hc.tree.getCode(char)
+	bits, ok := hc.bitmap[char]
+	if !ok {
+		return nil, &CodeNotFound{char: char}
+	}
+	return bits, nil
 }
 
 // get the number of unique unicode characters
 // in the huffman code
 func (hc *HuffmanCode) NumChars() int {
-	return len(hc.tree.bitmap)
+	return len(hc.bitmap)
 }
 
-func (hc *HuffmanCode) getTree() *huffmanTree {
+// get the total number of characters
+func (hc *HuffmanCode) TotalChars() int {
+	totalChars := 0
+	for leafNode := range hc.LeafNodes() {
+		totalChars += leafNode.freq
+	}
+	return totalChars
+}
+
+// get the huffman tree
+func (hc *HuffmanCode) Tree() *huffmanNode {
 	return hc.tree
 }
 
+// get the leaf nodes
+func (hc *HuffmanCode) LeafNodes() <-chan *huffmanNode {
+	ch := make(chan *huffmanNode)
+	go func() {
+		defer close(ch)
+		for _, ln := range hc.leafNodes {
+			ch <- ln
+		}
+	}()
+	return ch
+}
+
 func (hc *HuffmanCode) Equals(other *HuffmanCode) bool {
-	return hc.tree.equals(other.tree)
+	return hc.tree.Equals(other.tree)
 }
 
 func (hc *HuffmanCode) Encode(chars []rune) (Bits, error) {
 	var bits Bits = []Bit{}
 
-	// get code for each char and concat them together
-	for _, r := range chars {
-		code, err := hc.GetPrefixCode(r)
-		if err != nil {
-			return nil, err
-		}
-
-		bits = append(bits, code...)
-	}
-	
-	return bits, nil
-}
-
-func (hc *HuffmanCode) StreamEncode(chars <-chan rune) <-chan Bit {
-	ch := make(chan Bit)
-	
+	charsCh := make(chan rune)
 	go func() {
-		defer close(ch)
-		for r := range chars {
-			code, _ := hc.GetPrefixCode(r)
-			for _, bit := range code {
-				ch <- bit
-			}
+		defer close(charsCh)
+		for _, r := range chars {
+			charsCh <- r
 		}
 	}()
 
+	for result := range hc.StreamEncode(charsCh) {
+		if result.Err != nil {
+			return []Bit{}, result.Err
+		}
+		bits = append(bits, result.Val)
+	}
+	return bits, nil
+}
+
+func (hc *HuffmanCode) EncodeText(text string) (Bits, error) {
+	chars := []rune(text)
+	return hc.Encode(chars)
+} 
+
+func (hc *HuffmanCode) StreamEncode(charsCh <-chan rune) <-chan *StreamEncodeResult {
+	ch := make(chan *StreamEncodeResult)
+
+	go func() {
+		defer close(ch)
+		for r := range charsCh {
+			code, err := hc.GetPrefixCode(r)
+			if err != nil {
+				ch <- &StreamEncodeResult{Err: err}
+				break
+			}
+			for _, bit := range code {
+				ch <- &StreamEncodeResult{Val: bit}
+			}
+		}
+	}()
 	return ch
 }
 
-func (hc *HuffmanCode) Decode(bits Bits) (string, error) {
-	decoded := ""
-	node := hc.tree.root
+func (hc *HuffmanCode) Decode(bits Bits) ([]rune, error) {
+	decoded := []rune{}
+	bitsCh := make(chan Bit)
 
-	for _, bit := range bits {
-		if bit == Zero {
-			node = node.left
-		} else if bit == One {
-			node = node.right
+	go func() {
+		defer close(bitsCh)
+		for _, bit := range bits {
+			bitsCh <- bit
 		}
+	}()
 
-		// invalid decode if node is nil
-		// went into part of tree where there is no prefix code
-		// for the bits we're looking at
-		if node == nil {
-			return "", &InvalidDecodeError{bits: bits,}
+	for result := range hc.StreamDecode(bitsCh) {
+		if result.Err != nil {
+			return []rune{}, result.Err
 		}
-
-		if node.isLeaf() {
-			decoded += node.GetCharString()
-			node = hc.tree.root
-		}
-	}
-
-	// successful decoding means last bit resulted in a decoded char
-	// and node is reset to root node
-	if !hc.tree.isRoot(node) {
-		return "", &InvalidDecodeError{bits: bits,}
+		decoded = append(decoded, result.Val)
 	}
 
 	return decoded, nil
 }
 
-func (hc *HuffmanCode) StreamDecode(bits <-chan Bit) <-chan rune {
-	ch := make(chan rune)
+func (hc *HuffmanCode) DecodeText(bits Bits) (string, error) {
+	output, err := hc.Decode(bits)
+	text := string(output)
+	return text, err
+}
+
+func (hc *HuffmanCode) StreamDecode(bitsCh <-chan Bit) <-chan *StreamDecodeResult {
+	ch := make(chan *StreamDecodeResult)
 
 	go func() {
 		defer close(ch)
-		node := hc.tree.root
-		for bit := range bits {
+		node := hc.tree
+		for bit := range bitsCh {
 			if bit == Zero {
 				node = node.left
 			} else if bit == One {
 				node = node.right
 			}
 
-			if node.isLeaf() {
-				ch <- node.char
-				node = hc.tree.root
+			if node == nil {
+				ch <- &StreamDecodeResult{Err: &InvalidDecodeError{}}
+				break
+			}
+
+			if node.IsLeaf() {
+				ch <- &StreamDecodeResult{Val: node.char}
+				node = hc.tree
 			}
 		}
 	}()
@@ -133,7 +192,7 @@ func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
 	originalBits := 0
 	compressedBits := 0
 
-	for node := range hc.tree.traverseLeafNodes() {
+	for node := range hc.LeafNodes() {
 		charString := node.GetCharString()
 		numBits := GetBits(charString) * node.freq
 		code, _ := hc.GetPrefixCode(node.char)
@@ -160,18 +219,42 @@ func (hc *HuffmanCode) GetEntropy() float32 {
 } 
 
 
-func CreateHuffmanCodeFromText(text string) *HuffmanCode {
-	tree := createHuffmanTreeFromText(text)
-	hc := HuffmanCode{
-		tree: tree,
+func countCharFreqs(text string) map[rune]int {
+	charFreqs := make(map[rune]int)
+	for _, r := range text {
+		charFreqs[r] = charFreqs[r] + 1
 	}
-
-	return &hc
+	return charFreqs
 }
 
-// freqs: frequency of unicode code point (rune)
-func NewHuffmanCodeFromFreq(freqs map[rune]int) *HuffmanCode {
-	tree := newHuffumanTreeFromFreq(freqs)
-	hc := HuffmanCode{tree: tree,}
+func CreateHuffmanCodeFromText(text string) *HuffmanCode {
+	charFreqs := countCharFreqs(text)
+	return NewHuffmanCode(charFreqs)
+}
+
+
+// creates a huffman code from character frequencies
+// charFreqs - frequency of unicode codepoints
+func NewHuffmanCode(charFreqs map[rune]int) *HuffmanCode {
+	tree := newHuffumanTree(charFreqs)
+
+	// map of unicode codepoint to bits encoding
+	bitmap := getBitsForEachChar(tree)
+
+	// map unicode codepoint to leaf node in huffman tree
+	leafNodes := make(map[rune]*huffmanNode)
+	traverse(tree, func(n *huffmanNode) {
+		if n.IsLeaf() {
+			leafNodes[n.char] = n
+		}
+	})
+	
+	hc := HuffmanCode{
+		tree: tree,
+		leafNodes: leafNodes,
+		bitmap: bitmap,
+		charFreqs: charFreqs,
+		
+	}
 	return &hc
 }

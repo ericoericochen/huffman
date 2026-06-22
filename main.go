@@ -8,17 +8,15 @@ import (
 
 func main() {
 	// text := "Helllo"
-	text := "Hellllllllllllllllo"
+	text := "Helllllllllllllllllllllllo"
 
 	hc := huffman.CreateHuffmanCodeFromText(text)
 	fmt.Println(hc)
 
-	chars := []rune(text)
-
-	encoded, _ := hc.Encode(chars)
+	encoded, _ := hc.EncodeText(text)
 	fmt.Println(encoded)
 
-	decoded, _ := hc.Decode(encoded)
+	decoded, _ := hc.DecodeText(encoded)
 	fmt.Println(decoded)
 
 	fmt.Println("same: ", text == decoded)
@@ -27,18 +25,18 @@ func main() {
 	stats := hc.GetCompressionStats()
 	fmt.Println(stats)
 
-	charsCh := make(chan rune)
+	// charsCh := make(chan rune)
 
-	go func() {
-		for _, r := range chars {
-			charsCh <- r
-		}
-		close(charsCh)
-	}()
+	// go func() {
+	// 	for _, r := range chars {
+	// 		charsCh <- r
+	// 	}
+	// 	close(charsCh)
+	// }()
 
-	for bit := range hc.StreamEncode(charsCh) {
-		fmt.Println(bit)
-	}
+	// for bit := range hc.StreamEncode(charsCh) {
+	// 	fmt.Println(bit)
+	// }
 
 	// // measure bits saved
 	// fmt.Println("original bits: ", stats.OriginalBits)

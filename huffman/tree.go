@@ -5,61 +5,15 @@ import (
 	"slices"
 )
 
-
-type huffmanTree struct {
-	root *huffmanNode
-	bitmap map[rune]Bits
-	leafNodes map[rune]*huffmanNode
-	freqs map[rune]int
-}
-
-type CodeNotFound struct {
+type huffmanNode struct {
+	freq int
 	char rune
+	left *huffmanNode
+	right *huffmanNode
 }
 
-func (e *CodeNotFound) Error() string {
-	return fmt.Sprintf("CodeNotFound{char: %v}", string(e.char))
-}
-
-func (t *huffmanTree) getCode(char rune) (Bits, error) {
-	bits, ok := t.bitmap[char]
-	if !ok {
-		return nil, &CodeNotFound{char: char}
-	}
-	return bits, nil
-}
-
-func (t *huffmanTree) isRoot(n *huffmanNode) bool {
-	return t.root == n
-}
-
-func (t *huffmanTree) getLeafNode(char rune) *huffmanNode {
-	return t.leafNodes[char]
-}
-
-func (t *huffmanTree) traverseLeafNodes() <-chan *huffmanNode  {
-	ch := make(chan *huffmanNode)
-
-	go func() {
-		traverseLeafNodes(t.root, ch)
-		close(ch)
-	}()
-
-	return ch
-}
-
-func (t *huffmanTree) equals(other *huffmanTree) bool {
-	return sameHuffmanTree(t.root, other.root)
-}
-
-func (t *huffmanTree) TotalChars() int {
-	totalChars := 0
-	for _, freq := range t.freqs {
-		totalChars += freq
-	}
-	return totalChars
-}
-
+// helper functions
+// check if 2 huffman trees are the same
 func sameHuffmanTree(a, b *huffmanNode) bool {
 	// check both nodes are nil
 	if a == nil || b == nil {
@@ -89,20 +43,13 @@ func traverseLeafNodes(node *huffmanNode, ch chan<- *huffmanNode) {
 		return
 	}
 
-	if node.isLeaf() {
+	if node.IsLeaf() {
 		ch <- node
 		return
 	}
 
 	traverseLeafNodes(node.left, ch)
 	traverseLeafNodes(node.right, ch)
-}
-
-type huffmanNode struct {
-	freq int
-	char rune
-	left *huffmanNode
-	right *huffmanNode
 }
 
 func (n huffmanNode) String() string {
@@ -113,8 +60,12 @@ func (n *huffmanNode) GetCharString() string {
 	return string(n.char)
 }
 
-func (n *huffmanNode) isLeaf() bool {
+func (n *huffmanNode) IsLeaf() bool {
 	return n.left == nil && n.right == nil
+}
+
+func (n *huffmanNode) Equals(other *huffmanNode) bool {
+	return sameHuffmanTree(n, other)
 }
 
 func (n *huffmanNode) equals(other *huffmanNode) bool {
@@ -164,7 +115,7 @@ func getBitsForEachChar(n *huffmanNode) map[rune]Bits  {
 
 	var traverse func(n *huffmanNode)
 	traverse = func(n *huffmanNode) {
-		if n.isLeaf() {
+		if n.IsLeaf() {
 			mapping[n.char] = slices.Clone(bits)
 			return
 		}
@@ -180,28 +131,17 @@ func getBitsForEachChar(n *huffmanNode) map[rune]Bits  {
 	return mapping
 }
 
-
-func createHuffmanTreeFromText(text string) *huffmanTree {
-	// count frequency of each char in text
-	freqs := make(map[rune]int)
-	for _, r := range text {
-		freqs[r] = freqs[r] + 1
-	}
-
-	return newHuffumanTreeFromFreq(freqs)
-}
-
-func newHuffumanTreeFromFreq(freqs map[rune]int) *huffmanTree {
+func newHuffumanTree(charFreqs map[rune]int) *huffmanNode {
 	// create leaf node for each char
 	nodes := []*huffmanNode{}
-	unicodes := make([]rune, 0, len(freqs))
-	for k := range freqs {
+	unicodes := make([]rune, 0, len(charFreqs))
+	for k := range charFreqs {
 		unicodes = append(unicodes, k)
 	}
 
 	slices.Sort(unicodes)
 	for _, unicode := range unicodes {
-		freq := freqs[unicode]
+		freq := charFreqs[unicode]
 		node := huffmanNode{
 			freq: freq,
 			char: unicode,
@@ -227,23 +167,5 @@ func newHuffumanTreeFromFreq(freqs map[rune]int) *huffmanTree {
 	}
 
 	root := nodes[0]
-	bitmap := getBitsForEachChar(root)
-	leafNodes := make(map[rune]*huffmanNode)
-
-	traverse(root, func(n *huffmanNode) {
-		if n.isLeaf() {
-			leafNodes[n.char] = n
-		}
-	})
-
-	// fmt.Println(bitmap)
-
-	tree := huffmanTree{
-		root: root,
-		bitmap: bitmap,
-		leafNodes: leafNodes,
-		freqs: freqs,
-	}
-
-	return &tree
+	return root
 }
