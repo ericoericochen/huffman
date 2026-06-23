@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ericoericochen/huffman/huffman"
 )
@@ -47,21 +48,21 @@ func main() {
 	// fmt.Println("compressed bits: ", stats.CompressedBits)
 	// fmt.Println("compression ratio: ", stats.CompressionRatio)
 
-	// fc := huffman.NewFileCompressor()
-	// fp := "./examples/tiny-shakespeare.txt"
-	// saveFp := "./archive.hfcode"
+	fc := huffman.NewFileCompressor()
+	fp := "./examples/tiny-shakespeare.txt"
+	saveFp := "./examples/tiny-shakespeare.txt.hfcode"
 
-	// file, _ := os.Open(fp)
-	// saveFile, _ := os.Open(saveFp)
+	file, _ := os.Open(fp)
+	saveFile, _ := os.Open(saveFp)
 
-	// defer file.Close()
-	// defer saveFile.Close()
+	defer file.Close()
+	defer saveFile.Close()
 
-	// hc1 := fc.CreateHuffmanCode(file)
-	// fmt.Println("num chars hc1: ", hc1.NumChars())
-	// hc2, _ := fc.DecodeHuffmanCodeFromHeader(saveFile)
-	// equalHc := hc1.Equals(hc2)
+	hc1 := fc.CreateHuffmanCode(file)
+	fmt.Println("num chars hc1: ", hc1.NumChars())
+	hc2, _ := fc.DecodeHuffmanCodeFromHeader(saveFile)
+	equalHc := hc1.Equals(hc2)
 
-	// fmt.Println("equal hc: ")
-	// fmt.Println(equalHc)
+	fmt.Println("equal hc: ")
+	fmt.Println(equalHc)
 }
