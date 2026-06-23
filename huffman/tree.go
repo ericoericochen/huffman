@@ -1,6 +1,7 @@
 package huffman
 
 import (
+	"container/heap"
 	"fmt"
 	"slices"
 )
@@ -133,39 +134,51 @@ func getBitsForEachChar(n *huffmanNode) map[rune]Bits  {
 
 func newHuffumanTree(charFreqs map[rune]int) *huffmanNode {
 	// create leaf node for each char
-	nodes := []*huffmanNode{}
 	unicodes := make([]rune, 0, len(charFreqs))
 	for k := range charFreqs {
 		unicodes = append(unicodes, k)
 	}
 
 	slices.Sort(unicodes)
+	
+	// add to min priority queue where priority is frequency
+	pq := NewPriorityQueue[*huffmanNode]()
 	for _, unicode := range unicodes {
 		freq := charFreqs[unicode]
 		node := huffmanNode{
 			freq: freq,
 			char: unicode,
 		}
-		nodes = append(nodes, &node)
+		// nodes = append(nodes, &node)
+		item := &PriorityQueueItem[*huffmanNode]{
+			value: &node,
+			priority: freq,
+			// index: i,
+		}
+		heap.Push(&pq, item)
 	}
+	
+	heap.Init(&pq)
 
 	// construct huffman tree by greedily merging the 2 lowest freq nodes
 	// until there is one node
-	for len(nodes) != 1 {
-		// TODO: replace this with min priority queue
-		slices.SortFunc(nodes, func(a, b *huffmanNode) int {
-			return a.freq - b.freq
-		})
+	for pq.Len() > 1 {
+		a := heap.Pop(&pq).(*PriorityQueueItem[*huffmanNode])
+		b := heap.Pop(&pq).(*PriorityQueueItem[*huffmanNode])
 
 		// create node that merges the 2 lowest freq nodes
-		nodeA := nodes[0]
-		nodeB := nodes[1]
-		nodes = nodes[2:]
+		nodeA := a.value
+		nodeB := b.value
 
 		merged := mergeNodes(nodeA, nodeB)
-		nodes = append(nodes, merged)
+		item := &PriorityQueueItem[*huffmanNode]{
+			value: merged,
+			priority: merged.freq,
+		}
+		heap.Push(&pq, item)
 	}
 
-	root := nodes[0]
+	item := heap.Pop(&pq).(*PriorityQueueItem[*huffmanNode])
+	root := item.value
 	return root
 }

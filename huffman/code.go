@@ -14,6 +14,8 @@ type CompressionStats struct {
 	OriginalBits int64
 	CompressedBits int64
 	CompressionRatio float32
+	CompressionPercentage float32
+	BitsPerSymbol float32
 }
 
 type StreamEncodeResult struct {
@@ -87,6 +89,11 @@ func (hc *HuffmanCode) LeafNodes() <-chan *huffmanNode {
 
 func (hc *HuffmanCode) Equals(other *HuffmanCode) bool {
 	return hc.tree.Equals(other.tree)
+}
+
+// get bit map
+func (hc *HuffmanCode) BitMap() map[rune]Bits {
+	return hc.bitmap
 }
 
 func (hc *HuffmanCode) Encode(chars []rune) (Bits, error) {
@@ -191,6 +198,7 @@ func (hc *HuffmanCode) StreamDecode(bitsCh <-chan Bit) <-chan *StreamDecodeResul
 func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
 	originalBits := 0
 	compressedBits := 0
+	numSymbols := 0
 
 	for node := range hc.LeafNodes() {
 		charString := node.GetCharString()
@@ -199,16 +207,21 @@ func (hc *HuffmanCode) GetCompressionStats() CompressionStats {
 		numCompressedBits := len(code) * node.freq
 		originalBits += numBits
 		compressedBits += numCompressedBits
+		numSymbols += node.freq
 	}
 
-	// calculate compression ratio
-	savedBits := originalBits - compressedBits
-	compressionRatio := float32(savedBits) / float32(originalBits)
+	// calculate stats
+	compressionRatio := float32(originalBits) / float32(compressedBits)
+	compressionPercentage := 1 - float32(compressedBits) / float32(originalBits)
+	bitsPerSymbol := float32(compressedBits) / float32(numSymbols)
 
 	stats := CompressionStats{
 		OriginalBits: int64(originalBits),
 		CompressedBits: int64(compressedBits),
 		CompressionRatio: compressionRatio,
+		CompressionPercentage: compressionPercentage,
+		BitsPerSymbol: bitsPerSymbol,
+
 	}
 
 	return stats
@@ -227,7 +240,7 @@ func countCharFreqs(text string) map[rune]int {
 	return charFreqs
 }
 
-func CreateHuffmanCodeFromText(text string) *HuffmanCode {
+func NewHuffmanCodeFromText(text string) *HuffmanCode {
 	charFreqs := countCharFreqs(text)
 	return NewHuffmanCode(charFreqs)
 }

@@ -10,8 +10,12 @@ func main() {
 	// text := "Helllo"
 	text := "Helllllllllllllllllllllllo"
 
-	hc := huffman.CreateHuffmanCodeFromText(text)
-	fmt.Println(hc)
+	hc := huffman.NewHuffmanCodeFromText(text)
+	fmt.Println(hc.BitMap())
+
+	for r, b := range hc.BitMap() {
+		fmt.Println(string(r), b)
+	}
 
 	encoded, _ := hc.EncodeText(text)
 	fmt.Println(encoded)
